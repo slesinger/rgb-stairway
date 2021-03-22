@@ -1,0 +1,24 @@
+#define MQTT_HOST  "192.168.1.2"
+#define MQTT_PORT  8883
+#define MQTT_TOPIC "schody"
+#define MQTT_USER  "hass"
+#define MQTT_PASS  "pasword123 :-)"
+
+#define WIFI_SETUP_AP_NAME "schody"
+#define WIFI_SETUP_AP_PASS "pasword123"
+
+
+#define PROGRAM_INIT "0:100(120r0g0b)100(0r120g0b)100(0r0g120b)1000(0r0g120b)100(0r0g0b);1:100(120r0g0b)100(0r120g0b)1000(0r120g0b)100(0r0g0b);2:100(120r0g0b)1000(120r0g0b)100(0r0g0b)"
+// How many leds are in the strip_dole?
+#define NUM_SCHODU 16
+#define NUM_PROG_STEPS 50
+#define LAST_PROG_STEP 65535
+#define DIM_INTENSITY 120
+
+// Data pin that led data will be written out over
+#define STRIP_DOLE_PIN 13
+#define STRIP_NAHORE_PIN 12
+
+#define IR_RECV_DOLE_PIN 4
+#define IR_LED_NAHORE_PIN GPIO_NUM_16
+#define IR_RECV_NAHORE_PIN 17
