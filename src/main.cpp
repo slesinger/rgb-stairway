@@ -218,6 +218,7 @@ void task_led_strip(void *parameter) {
 void setup_wifi()
 {
   wifiManager.autoConnect(WIFI_SETUP_AP_NAME, WIFI_SETUP_AP_PASS); //AP tohoto ESP
+  wifiManager.setWiFiAutoReconnect(true);
   Serial.print("IP address: ");                        //kdyz se pripoji na stromecek
   Serial.println(WiFi.localIP());
 }
