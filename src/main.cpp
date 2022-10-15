@@ -52,6 +52,7 @@ PubSubClient client(espClient);
 boolean irdole_publish = false;
 boolean irnahore_publish = false;
 boolean ma_se_poslat_konec_sviceni = true;
+boolean is_night_enabled = true;
 
 void setSchod(int id, RgbColor moje_barva)
 {
@@ -333,8 +334,15 @@ void task_tx_ir(void *parameter)
 }
 
 void mqtt_handler(const char* topic, byte* payload, unsigned int length) {
-  // if (topic == 'schody/program')
-  program_load(payload, length);
+  Serial.println(topic);
+  if (strcmp(topic, "schody/cmd") == 0) {
+    program_load(payload, length);
+  }
+  else if (strcmp(topic, "schody/mode") == 0) {
+    if (payload[0] == 'N') is_night_enabled = true;
+    else if (payload[0] == 'D') is_night_enabled = false;
+    else if (payload[0] == 'R') ESP.restart();
+  }
 }
 
 void mqtt_reconnect()
@@ -349,6 +357,7 @@ void mqtt_reconnect()
       client.setBufferSize(4096); //to fit long program sent to schody/cmd
       client.setCallback(&mqtt_handler);
       client.subscribe("schody/cmd", 0);
+      client.subscribe("schody/mode", 0);
     }
     else
     {
