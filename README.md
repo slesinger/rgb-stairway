@@ -84,8 +84,10 @@ Suffix -start and -end distinguish color that the animation will beging with and
 
 # Installation
 1. Clone this repo
-2. Install [Platform.io Core](https://docs.platformio.org/en/latest/core/installation.html)
-3. Adjust values in src/config.h. Mostly MQTT connection details are needed.
+2. Create python venev ```python3 -m venev venv```
+3. Activate venv ```source venv/binactivate```
+4. Install [Platform.io Core](https://docs.platformio.org/en/latest/core/installation.html) ```pio install platformio```
+5. Adjust values in src/config.h. Mostly MQTT connection details are needed.
 
 ## Build & Upload
 ```

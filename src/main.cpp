@@ -379,6 +379,7 @@ void task_mqtt_status_publish(void *parameter) {
 void task_mqtt_ir_publish(void *parameter) {
   while (true) {
     if (irdole_publish) {
+      program_load((byte*)PROGRAM_UPSTAIRS, strlen(PROGRAM_UPSTAIRS));
       client.publish("schody/ir/dole", "on", true);
       irdole_publish = false;
       client.loop();
@@ -386,6 +387,7 @@ void task_mqtt_ir_publish(void *parameter) {
       client.publish("schody/ir/dole", "off", true);
     }
     if (irnahore_publish) {
+      program_load((byte*)PROGRAM_DOWNSTAIRS, strlen(PROGRAM_DOWNSTAIRS));
       client.publish("schody/ir/nahore", "on", true);
       irnahore_publish = false;
       client.loop();
