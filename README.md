@@ -64,13 +64,24 @@ See ```docs``` folder for wiring diagram.
 
 **Listening on topics**
 
-```schody/cmd``` receive color animation commands
+```schody/cmd``` receive color animation commands, see MQTT CMD Message layout
 
-## MQTT Message layout
+```schody/mode``` switch to a mode
+ 
+### MQTT Mode Message Payload
+ - R reset device
+ - N night mode. Internal Down/Upstairs procedures will be enabled.
+ - D day mode. Internal Down/Upstairs procedures will be suppressed.
+
+### MQTT CMD Message layout
 This is example demo sequence:
 ```
 0:50(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 1:200(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 2:300(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 3:450(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 4:600(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 5:750(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 6:900(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 7:1050(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b)
 ```
+
+## Internal triggers
+
+User expects an immediate respone when stepping on first orlast step. Relying on MQTT and Hass automation brings additional delay ~500ms. This is workarounded by triggering PROGRAM_UPSTAIRS or PROGRAM_DOWNSTAIRS (see config.h) internally. This behavior can be enabled/disabled by setting nigh/day mode. Event sent via MQTT on user stepping first/last step is not impacted.
 
 **Syntax**
 
@@ -84,8 +95,10 @@ Suffix -start and -end distinguish color that the animation will beging with and
 
 # Installation
 1. Clone this repo
-2. Install [Platform.io Core](https://docs.platformio.org/en/latest/core/installation.html)
-3. Adjust values in src/config.h. Mostly MQTT connection details are needed.
+2. Create python venev ```python3 -m venev venv```
+3. Activate venv ```source venv/binactivate```
+4. Install [Platform.io Core](https://docs.platformio.org/en/latest/core/installation.html) ```pio install platformio```
+5. Adjust values in src/config.h. Mostly MQTT connection details are needed.
 
 ## Build & Upload
 ```
@@ -98,10 +111,10 @@ pio lib update
 Wifi password is not uploaded with binary. ESP will enter AP mode after first startup (or anytime it cannot connect to a know network). Default SSID of the setup AP is ```schody``` and password is ```password123```. Feel free to change this default in src/config.h
 
 ## Libraries used:
-- `FastLED`
+- `FastLED` https://github.com/FastLED/FastLED
 - `FreeRTOS`
-- `ArduinoOTA`
-- `WiFiManager`
+- `pubsubclient` https://github.com/knolleary/pubsubclient
+- `WiFiManager` https://github.com/tzapu/WiFiManager
 
 Project is built with [Arduino for ESP32](https://github.com/espressif/arduino-esp32) project.
 

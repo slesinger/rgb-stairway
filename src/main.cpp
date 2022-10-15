@@ -13,16 +13,13 @@ Exaplanation of the formatr:
 Stairs are split to two part upper part (nahore) and bottom part (dole) 
 */
 
-#include "secrets.h"
+#include "config.h"
 #include <Arduino.h>
 
-#include <WiFi.h>
 #include <NeoPixelBus.h>
 
 //needed for library
-#include <DNSServer.h>
-#include <WebServer.h>
-#include <WiFiManager.h>
+#include <WiFiManager.h>  //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <PubSubClient.h> //https://pubsubclient.knolleary.net/api.html
 #include "driver/rmt.h"
 
@@ -54,6 +51,8 @@ PubSubClient client(espClient);
 
 boolean irdole_publish = false;
 boolean irnahore_publish = false;
+boolean ma_se_poslat_konec_sviceni = true;
+boolean is_night_enabled = true;
 
 void setSchod(int id, RgbColor moje_barva)
 {
@@ -217,8 +216,9 @@ void task_led_strip(void *parameter) {
 
 void setup_wifi()
 {
-  wifiManager.autoConnect(WIFI_SETUP_AP_NAME, WIFI_SETUP_AP_PASS); //AP tohoto ESP
-  wifiManager.setWiFiAutoReconnect(true);
+  // wifiManager.setCountry("CZ");
+  wifiManager.autoConnect(WIFI_SETUP_AP_NAME, WIFI_SETUP_AP_PASS); //AP of this ESP device for initial config
+  // wifiManager.setWiFiAutoReconnect(true);
   Serial.print("IP address: ");                        //kdyz se pripoji na stromecek
   Serial.println(WiFi.localIP());
 }
@@ -334,8 +334,15 @@ void task_tx_ir(void *parameter)
 }
 
 void mqtt_handler(const char* topic, byte* payload, unsigned int length) {
-  // if (topic == 'schody/program')
-  program_load(payload, length);
+  Serial.println(topic);
+  if (strcmp(topic, "schody/cmd") == 0) {
+    program_load(payload, length);
+  }
+  else if (strcmp(topic, "schody/mode") == 0) {
+    if (payload[0] == 'N') is_night_enabled = true;
+    else if (payload[0] == 'D') is_night_enabled = false;
+    else if (payload[0] == 'R') ESP.restart();
+  }
 }
 
 void mqtt_reconnect()
@@ -350,6 +357,7 @@ void mqtt_reconnect()
       client.setBufferSize(4096); //to fit long program sent to schody/cmd
       client.setCallback(&mqtt_handler);
       client.subscribe("schody/cmd", 0);
+      client.subscribe("schody/mode", 0);
     }
     else
     {
@@ -380,6 +388,7 @@ void task_mqtt_status_publish(void *parameter) {
 void task_mqtt_ir_publish(void *parameter) {
   while (true) {
     if (irdole_publish) {
+      if (is_night_enabled) program_load((byte*)PROGRAM_UPSTAIRS, strlen(PROGRAM_UPSTAIRS));
       client.publish("schody/ir/dole", "on", true);
       irdole_publish = false;
       client.loop();
@@ -387,6 +396,7 @@ void task_mqtt_ir_publish(void *parameter) {
       client.publish("schody/ir/dole", "off", true);
     }
     if (irnahore_publish) {
+      if (is_night_enabled) program_load((byte*)PROGRAM_DOWNSTAIRS, strlen(PROGRAM_DOWNSTAIRS));
       client.publish("schody/ir/nahore", "on", true);
       irnahore_publish = false;
       client.loop();
