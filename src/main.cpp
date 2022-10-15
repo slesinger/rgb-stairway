@@ -13,16 +13,13 @@ Exaplanation of the formatr:
 Stairs are split to two part upper part (nahore) and bottom part (dole) 
 */
 
-#include "secrets.h"
+#include "config.h"
 #include <Arduino.h>
 
-#include <WiFi.h>
 #include <NeoPixelBus.h>
 
 //needed for library
-#include <DNSServer.h>
-#include <WebServer.h>
-#include <WiFiManager.h>
+#include <WiFiManager.h>  //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <PubSubClient.h> //https://pubsubclient.knolleary.net/api.html
 #include "driver/rmt.h"
 
@@ -54,6 +51,7 @@ PubSubClient client(espClient);
 
 boolean irdole_publish = false;
 boolean irnahore_publish = false;
+boolean ma_se_poslat_konec_sviceni = true;
 
 void setSchod(int id, RgbColor moje_barva)
 {
@@ -217,8 +215,9 @@ void task_led_strip(void *parameter) {
 
 void setup_wifi()
 {
-  wifiManager.autoConnect(WIFI_SETUP_AP_NAME, WIFI_SETUP_AP_PASS); //AP tohoto ESP
-  wifiManager.setWiFiAutoReconnect(true);
+  // wifiManager.setCountry("CZ");
+  wifiManager.autoConnect(WIFI_SETUP_AP_NAME, WIFI_SETUP_AP_PASS); //AP of this ESP device for initial config
+  // wifiManager.setWiFiAutoReconnect(true);
   Serial.print("IP address: ");                        //kdyz se pripoji na stromecek
   Serial.println(WiFi.localIP());
 }
