@@ -68,12 +68,12 @@ See ```docs``` folder for wiring diagram.
 
 ```schody/mode``` switch to a mode
  
- Payload:
+### MQTT Mode Message Payload
  - R reset device
  - N night mode. Internal Down/Upstairs procedures will be enabled.
  - D day mode. Internal Down/Upstairs procedures will be suppressed.
 
-## MQTT CMD Message layout
+### MQTT CMD Message layout
 This is example demo sequence:
 ```
 0:50(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 1:200(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 2:300(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 3:450(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 4:600(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 5:750(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 6:900(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b) 7:1050(0r0g0b)60(0r120g0b)85(0b120g0r)60(0r0g0b)
