@@ -53,6 +53,7 @@ boolean irdole_publish = false;
 boolean irnahore_publish = false;
 boolean ma_se_poslat_konec_sviceni = true;
 boolean is_night_enabled = true;
+long lastStatusAck = 0;
 
 void setSchod(int id, RgbColor moje_barva)
 {
@@ -343,6 +344,9 @@ void mqtt_handler(const char* topic, byte* payload, unsigned int length) {
     else if (payload[0] == 'D') is_night_enabled = false;
     else if (payload[0] == 'R') ESP.restart();
   }
+  else if (strcmp(topic, "schody/status") == 0) {
+    lastStatusAck = millis();
+  }
 }
 
 void mqtt_reconnect()
@@ -358,6 +362,7 @@ void mqtt_reconnect()
       client.setCallback(&mqtt_handler);
       client.subscribe("schody/cmd", 0);
       client.subscribe("schody/mode", 0);
+      client.subscribe("schody/status", 0);
     }
     else
     {
@@ -381,6 +386,11 @@ void task_mqtt_status_publish(void *parameter) {
     }
     client.publish("schody/status", String("OK").c_str(), true);
 
+    if (millis() - lastStatusAck > 300000) {  // reset every 5 minutes if status not acknowledged
+      Serial.print("Going to restart due to no status ack for 5 minutes. Last ack before[ms]: ");
+      Serial.println(millis() - lastStatusAck);
+      esp_restart();
+    }
     vTaskDelay( 10000 / portTICK_PERIOD_MS);
   }
 }
@@ -412,7 +422,7 @@ void task_mqtt_ir_publish(void *parameter) {
 void setup() {
   // sanity check delay - allows reprogramming if accidently blowing power w/leds
   delay(2000);
-
+  lastStatusAck = millis();
   Serial.begin(9600);
   strip_dole.Begin();
   strip_nahore.Begin();
