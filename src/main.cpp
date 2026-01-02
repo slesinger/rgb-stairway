@@ -154,9 +154,13 @@ void program_load(byte* prg, unsigned int length) {
             num = 0;
         }
         if (ch == ')') {
+          if (schod < NUM_SCHODU && step < NUM_PROG_STEPS) {
             // program[schod][step] = { .period = period, .target_color = RgbColor(r,g,b)};
             program[schod][step] = { .period = period, .target_color = RgbColor(r%127,g%127,b%127)};
             step++;
+          } else {
+            Serial.printf("Warning: Ignoring program step schod=%u, step=%u (out of bounds)\n", schod, step);
+          }
         }
         curr_prg++;
     }
@@ -355,7 +359,8 @@ void mqtt_reconnect()
   {
     Serial.printf("Connection state %d. Connecting to MQTT...", client.state());
 
-    if (client.connect(MQTT_TOPIC, MQTT_USER, MQTT_PASS), true)
+    // if (client.connect(MQTT_TOPIC, MQTT_USER, MQTT_PASS), true)
+    if (client.connect(MQTT_TOPIC, MQTT_USER, MQTT_PASS, nullptr, 0, false, nullptr, true))
     {
       Serial.println("connected");
       client.setBufferSize(4096); //to fit long program sent to schody/cmd
@@ -384,7 +389,12 @@ void task_mqtt_status_publish(void *parameter) {
       mqtt_reconnect();
       client.publish("schody/status", String("RECONNECTED").c_str(), true);
     }
-    client.publish("schody/status", String("OK").c_str(), true);
+    // Send 'noc' if enabled (night), 'den' if disabled (day)
+    if (is_night_enabled) {
+      client.publish("schody/status", "noc", true);
+    } else {
+      client.publish("schody/status", "den", true);
+    }
 
     if (millis() - lastStatusAck > 300000) {  // reset every 5 minutes if status not acknowledged
       Serial.print("Going to restart due to no status ack for 5 minutes. Last ack before[ms]: ");

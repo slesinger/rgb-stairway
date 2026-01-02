@@ -118,6 +118,11 @@ Wifi password is not uploaded with binary. ESP will enter AP mode after first st
 
 Project is built with [Arduino for ESP32](https://github.com/espressif/arduino-esp32) project.
 
+## Library upgrades
+
+```
+pio pkg update
+```
 
 ## License
 
