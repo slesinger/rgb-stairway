@@ -20,8 +20,10 @@ Stairs are split to two part upper part (nahore) and bottom part (dole)
 
 //needed for library
 #include <WiFiManager.h>  //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+
 #include <PubSubClient.h> //https://pubsubclient.knolleary.net/api.html
 #include "driver/rmt.h"
+#include <ArduinoOTA.h>
 
 
 // builtin LED
@@ -461,9 +463,28 @@ void setup() {
   xTaskCreate(&task_tx_ir, "TaskTxIr", 10000, NULL, 2, NULL);
   xTaskCreate(&task_mqtt_status_publish, "TaskMqttPublish", 10000, NULL, 1, NULL);
   xTaskCreate(&task_mqtt_ir_publish, "TaskMqttPublish", 10000, NULL, 1, NULL);
+
+  // OTA setup
+  ArduinoOTA.setHostname("schody-esp32");
+  ArduinoOTA.onStart([]() {
+    Serial.println("OTA Update Start");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("OTA Update End");
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("OTA Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+  ArduinoOTA.begin();
 }
 
 void loop()
 {
+  ArduinoOTA.handle();
   delay(100);
 }
