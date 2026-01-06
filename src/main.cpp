@@ -5,10 +5,24 @@ mosquitto_pub -h localhost -p 8883 -u hass -P <mqtt password> -t schody/cmd -m <
 0:10(120r0g0b)1000(124R125g125B)1000(120r0g0b)1000(0r120g0b)1000(0r0g120b)1000(0r0g0b)
 1:10(120r0g0b)1000(124R125g125B)1000(120g0r0b)1000(0r120b0g)1000(0b0g120r)1000(0r0g0b)
 
-Exaplanation of the formatr:
-<schod>:period(<r>r<g>g<b>b)...
+Program Syntax:
+  <stair>:<period>(<r>r<g>g<b>b)<period>(<r>r<g>g<b>b)...
+  
+  - stair: Step number (0-15)
+  - period: Duration in ticks (1 tick = 3ms)
+  - r, g, b: Color values (case-insensitive)
+  
+  Color Value Special Cases:
+    0-127: Normal color intensity
+    254: Copy that specific channel from previous step's target (per-channel)
+    255: Random color (single hue 0-255, saturation 100%, value 50%)
+  
+  Example: 0:10(0r0g0b)100(60r0g0b)1000(254r254g254b)2000(0r0g0b)
+    - Fade to red, hold red for 1000 ticks (all channels copied), fade to black
+  Example: 0:10(0r0g0b)100(60r0g0b)1000(254r254g40b)2000(0r0g0b)
+    - Fade to red, transition to purple (R=60 copied, G=0 copied, B=40 new), fade to black
 
-1 period = 5ms
+1 period = 3ms (actual execution time in task_led_strip)
 
 Stairs are split to two part upper part (nahore) and bottom part (dole) 
 */
@@ -157,8 +171,42 @@ void program_load(byte* prg, unsigned int length) {
         }
         if (ch == ')') {
           if (schod < NUM_SCHODU && step < NUM_PROG_STEPS) {
-            // program[schod][step] = { .period = period, .target_color = RgbColor(r,g,b)};
-            program[schod][step] = { .period = period, .target_color = RgbColor(r%127,g%127,b%127)};
+            // Store values as-is, handling special values later
+            uint16_t rr = (r >= 254) ? r : (r % 127);
+            uint16_t gg = (g >= 254) ? g : (g % 127);
+            uint16_t bb = (b >= 254) ? b : (b % 127);
+            
+            // Handle 254 per-channel: copy that specific channel from previous step's target
+            if (step > 0) {
+              RgbColor prev_target = program[schod][step - 1].target_color;
+              if (rr == 254) rr = prev_target.R;
+              if (gg == 254) gg = prev_target.G;
+              if (bb == 254) bb = prev_target.B;
+            } else {
+              // For first step, if 254 is used, default to 0 for that channel
+              if (rr == 254) rr = 0;
+              if (gg == 254) gg = 0;
+              if (bb == 254) bb = 0;
+            }
+            
+            // Handle 255: generate random color using HSV
+            // Generate single random hue (0-255), S=100%, V=50%
+            if (rr == 255 || gg == 255 || bb == 255) {
+              uint32_t random_val = esp_random();
+              uint8_t hue = (random_val & 0xFF);  // Random hue 0-255
+              
+              // Create HSB color: Hue (0-360 mapped from 0-255), Saturation 100%, Brightness 50%
+              // NeoPixelBus uses float values: H=0.0-1.0, S=0.0-1.0, B=0.0-1.0
+              HsbColor hsb_color(hue / 255.0f, 1.0f, 0.5f);
+              RgbColor rgb_color(hsb_color);
+              
+              // Only apply to channels that were set to 255
+              if (rr == 255) rr = rgb_color.R;
+              if (gg == 255) gg = rgb_color.G;
+              if (bb == 255) bb = rgb_color.B;
+            }
+            
+            program[schod][step] = { .period = period, .target_color = RgbColor(rr, gg, bb) };
             step++;
           } else {
             Serial.printf("Warning: Ignoring program step schod=%u, step=%u (out of bounds)\n", schod, step);
@@ -169,6 +217,7 @@ void program_load(byte* prg, unsigned int length) {
 
     for (int schod = 0; schod < NUM_SCHODU; schod++) {
       RgbColor targ_col = program[schod][0].target_color;
+      // 254 values have already been resolved during parsing, so just use target as-is
       program_current_color[schod].deltaR = ((float)targ_col.R - 0) / (float)program[schod][0].period;
       program_current_color[schod].deltaG = ((float)targ_col.G - 0) / (float)program[schod][0].period;
       program_current_color[schod].deltaB = ((float)targ_col.B - 0) / (float)program[schod][0].period;
@@ -192,7 +241,7 @@ void task_led_strip(void *parameter) {
 
       if (program[schod][program_pointers[schod]].period == 0) {
         program_pointers[schod]++; //period for given step passed, go to next program step
-        //calculate blending deltas
+        //calculate blending deltas (254 values already resolved during load)
         RgbColor targ_col = program[schod][program_pointers[schod]].target_color;
         program_current_color[schod].deltaR = ((float)targ_col.R - program_current_color[schod].R) / (float)program[schod][program_pointers[schod]].period;
         program_current_color[schod].deltaG = ((float)targ_col.G - program_current_color[schod].G) / (float)program[schod][program_pointers[schod]].period;
@@ -211,12 +260,23 @@ void task_led_strip(void *parameter) {
         program_current_color[schod].R += program_current_color[schod].deltaR;
         program_current_color[schod].G += program_current_color[schod].deltaG;
         program_current_color[schod].B += program_current_color[schod].deltaB;
-        RgbColor new_col((uint8_t)program_current_color[schod].R, (uint8_t)program_current_color[schod].G, (uint8_t)program_current_color[schod].B);
+        // All special values (254, 255) already resolved during program load
+        uint8_t r = (uint8_t)program_current_color[schod].R;
+        uint8_t g = (uint8_t)program_current_color[schod].G;
+        uint8_t b = (uint8_t)program_current_color[schod].B;
+        RgbColor new_col(r, g, b);
         setSchod(schod, new_col); //TODO vylepsit setSchod API - odebrat intensity
       }
     }
     showSchody();
     vTaskDelay( 3 / portTICK_PERIOD_MS);
+  }
+}
+
+void task_ota_handle(void *parameter) {
+  while (true) {
+    ArduinoOTA.handle();
+    vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
 
@@ -359,7 +419,7 @@ void mqtt_reconnect()
 {
   if (!client.connected())
   {
-    Serial.printf("Connection state %d. Connecting to MQTT...", client.state());
+    Serial.printf("MQTT connection state %d. Trying to connect...", client.state());
 
     // if (client.connect(MQTT_TOPIC, MQTT_USER, MQTT_PASS), true)
     if (client.connect(MQTT_TOPIC, MQTT_USER, MQTT_PASS, nullptr, 0, false, nullptr, true))
@@ -436,6 +496,10 @@ void setup() {
   delay(2000);
   lastStatusAck = millis();
   Serial.begin(9600);
+  
+  // Seed standard random generator (ESP32 auto-seeds from hardware noise)
+  randomSeed(analogRead(0) + millis());
+  
   strip_dole.Begin();
   strip_nahore.Begin();
   program_load((byte*)PROGRAM_INIT, strlen(PROGRAM_INIT));
@@ -465,26 +529,26 @@ void setup() {
   xTaskCreate(&task_mqtt_ir_publish, "TaskMqttPublish", 10000, NULL, 1, NULL);
 
   // OTA setup
-  ArduinoOTA.setHostname("schody-esp32");
-  ArduinoOTA.onStart([]() {
-    Serial.println("OTA Update Start");
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("OTA Update End");
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("OTA Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
+  // ArduinoOTA.setHostname("schody-esp32");
+  // ArduinoOTA.onStart([]() {
+  //   Serial.println("OTA Update Start");
+  // });
+  // ArduinoOTA.onEnd([]() {
+  //   Serial.println("OTA Update End");
+  // });
+  // ArduinoOTA.onError([](ota_error_t error) {
+  //   Serial.printf("OTA Error[%u]: ", error);
+  //   if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+  //   else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+  //   else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+  //   else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+  //   else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  // });
+  // ArduinoOTA.begin();
+  // xTaskCreate(&task_ota_handle, "TaskOtaHandle", 10000, NULL, 1, NULL);
 }
 
 void loop()
 {
-  ArduinoOTA.handle();
-  delay(100);
+  delay(1000);
 }
